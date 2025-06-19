@@ -430,9 +430,6 @@
             }
 
             showLoading();
-
-
-            
             
             // Display file info
             fileName.textContent = file.name;
@@ -633,24 +630,81 @@
                 </div>
             `;
 
-            if (!isShowAll) {
-                // Add per-column non-empty counts
-                selectedColumnIndices.forEach(colIndex => {
-                    const count = dataRows.reduce((acc, row) => {
-                        const val = row[colIndex];
-                        return (val !== undefined && val !== '') ? acc + 1 : acc;
-                    }, 0);
-                    statsHTML += `
-                        <div class="stat-card">
-                            <div class="stat-number">${count}</div>
-                            <div class="stat-label">${currentHeaders[colIndex].name} Count</div>
-                        </div>
-                    `;
-                });
+            // Identify degree column index
+            const degreeHeader = currentHeaders.find(h => h.name.toLowerCase().includes("degree"));
+            if (degreeHeader) {
+                const colIndex = degreeHeader.index;
+
+                let masterCount = 0;
+                let bachelorCount = 0;
+                let otherCount = 0;
+
+                for (const row of dataRows) {
+                    const cell = (row[colIndex] || "").toString().toLowerCase();
+                    if (cell.includes("postgraduate") || cell.includes("master") || cell.includes("me") || cell.includes("phd") || cell.includes("doctor")) {
+                        masterCount++;
+                    } else if (cell.includes("bachelor") || cell.includes("be") || cell.includes("undergraduate")) {
+                        bachelorCount++;
+                    } else {
+                        otherCount++;
+                    }
+                }
+
+                statsHTML += `
+                    <div class="stat-card">
+                        <div class="stat-number">${masterCount}</div>
+                        <div class="stat-label">Master</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${bachelorCount}</div>
+                        <div class="stat-label">Bachelor</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${otherCount}</div>
+                        <div class="stat-label">Other</div>
+                    </div>
+                `;
+            }
+
+            // Identify university column index
+            const universityHeader = currentHeaders.find(h => h.name.toLowerCase().includes("university"));
+            if (universityHeader) {
+                const colIndex = universityHeader.index;
+
+                let uqCount = 0;
+                let qutCount = 0;
+                let othersCount = 0;
+
+                for (const row of dataRows) {
+                    const cell = (row[colIndex] || "").toString().toLowerCase().trim();
+                    if (cell.includes("uq")) {
+                        uqCount++;
+                    } else if (cell.includes("qut")) {
+                        qutCount++;
+                    } else {
+                        othersCount++;
+                    }
+                }
+
+                statsHTML += `
+                    <div class="stat-card">
+                        <div class="stat-number">${uqCount}</div>
+                        <div class="stat-label">UQ Student</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${qutCount}</div>
+                        <div class="stat-label">QUT Student</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${othersCount}</div>
+                        <div class="stat-label">Others</div>
+                    </div>
+                `;
             }
 
             stats.innerHTML = statsHTML;
         }
+
 
         function displayStats(data) {
             // This function is now handled by updateStatsForSelectedColumns
