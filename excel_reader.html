@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel File Reader</title>
+    <title>GUTS Membership Stats</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -279,7 +280,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>📊 Excel File Reader</h1>
+        <h1>GUTS Membership STATS</h1>
         
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
@@ -315,6 +316,11 @@
 
         <div class="data-container" id="dataContainer">
             <div class="stats" id="stats"></div>
+            <div style="text-align: center; margin-bottom: 20px;">
+                <button id="generateChartBtn" style="padding: 10px 20px; font-size: 1em; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">Generate Pie Chart</button>
+            </div>
+
+            <canvas id="statsPieChart" style="max-width: 600px; margin: 0 auto; display: none;"></canvas>
             <div class="table-wrapper">
                 <table id="dataTable">
                     <thead id="tableHeader"></thead>
@@ -614,27 +620,25 @@
             );
             const dataRows = hasHeaders ? currentData.slice(1) : currentData;
 
-            const isShowAll = columnSelect.selectedOptions.length === 1 && columnSelect.selectedOptions[0].value === "all";
-
             const totalRows = dataRows.length;
-            const totalCols = currentHeaders.length;
+            const isShowAll = columnSelect.selectedOptions.length === 1 && columnSelect.selectedOptions[0].value === "all";
 
             let statsHTML = `
                 <div class="stat-card">
                     <div class="stat-number">${totalRows}</div>
-                    <div class="stat-label">Data Rows</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">${isShowAll ? totalCols : selectedColumnIndices.length}</div>
-                    <div class="stat-label">${isShowAll ? 'Total Columns' : 'Columns Shown'}</div>
+                    <div class="stat-label">Total Membership</div>
                 </div>
             `;
 
-            // Identify degree column index
             const degreeHeader = currentHeaders.find(h => h.name.toLowerCase().includes("degree"));
-            if (degreeHeader) {
-                const colIndex = degreeHeader.index;
+            const universityHeader = currentHeaders.find(h => h.name.toLowerCase().includes("university"));
 
+            const showDegreeStats = isShowAll || (degreeHeader && selectedColumnIndices.includes(degreeHeader.index));
+            const showUniversityStats = isShowAll || (universityHeader && selectedColumnIndices.includes(universityHeader.index));
+
+            // Identify degree column
+            if (showDegreeStats && degreeHeader) {
+                const colIndex = degreeHeader.index;
                 let masterCount = 0;
                 let bachelorCount = 0;
                 let otherCount = 0;
@@ -666,11 +670,9 @@
                 `;
             }
 
-            // Identify university column index
-            const universityHeader = currentHeaders.find(h => h.name.toLowerCase().includes("university"));
-            if (universityHeader) {
+            // Identify university column
+            if (showUniversityStats && universityHeader) {
                 const colIndex = universityHeader.index;
-
                 let uqCount = 0;
                 let qutCount = 0;
                 let othersCount = 0;
@@ -702,9 +704,94 @@
                 `;
             }
 
+            // Region Stats
+            const regionHeader = currentHeaders.find(h => h.name.toLowerCase().includes("region"));
+            const showRegionStats = isShowAll || (regionHeader && selectedColumnIndices.includes(regionHeader.index));
+
+            if (showRegionStats && regionHeader) {
+                const colIndex = regionHeader.index;
+                let taiwanCount = 0;
+                let otherCount = 0;
+
+                for (const row of dataRows) {
+                    const cell = (row[colIndex] || "").toString().toLowerCase().trim();
+                    if (cell.includes("taiwan")) {
+                        taiwanCount++;
+                    } else if (cell !== "") {
+                        otherCount++;
+                    }
+                }
+
+                statsHTML += `
+                    <div class="stat-card">
+                        <div class="stat-number">${taiwanCount}</div>
+                        <div class="stat-label">Taiwan</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${otherCount}</div>
+                        <div class="stat-label">Other Countries</div>
+                    </div>
+                `;
+            }
+
             stats.innerHTML = statsHTML;
         }
 
+        document.getElementById("generateChartBtn").addEventListener("click", () => {
+            const statCards = document.querySelectorAll(".stat-card");
+            const labels = [];
+            const data = [];
+
+            const excludedLabels = [
+                "data rows", "total columns", "columns shown", "total membership",
+            ];
+
+            statCards.forEach(card => {
+                const label = card.querySelector(".stat-label")?.textContent.trim();
+                const number = parseInt(card.querySelector(".stat-number")?.textContent.trim());
+
+                if (label && number && !excludedLabels.includes(label.toLowerCase())) {
+                    labels.push(label);
+                    data.push(number);
+                }
+            });
+
+            if (labels.length === 0) return;
+
+            const ctx = document.getElementById("statsPieChart").getContext("2d");
+            document.getElementById("statsPieChart").style.display = "block";
+
+            if (window.pieChartInstance) {
+                window.pieChartInstance.destroy();
+            }
+
+            window.pieChartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Statistics',
+                        data: data,
+                        backgroundColor: [
+                            '#667eea', '#764ba2', '#ff6b6b', '#48bb78', '#f6ad55',
+                            '#4299e1', '#ed64a6', '#f56565', '#38b2ac', '#ecc94b'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Statistics Breakdown'
+                        }
+                    }
+                }
+            });
+        });
 
         function displayStats(data) {
             // This function is now handled by updateStatsForSelectedColumns
